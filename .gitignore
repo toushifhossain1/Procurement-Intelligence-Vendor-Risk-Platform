@@ -1,0 +1,33 @@
+# AL / Business Central
+.alpackages/
+*.app
+*.dep.json
+.rad.json
+
+# AL local development configuration
+src/BC.Extensions/AL-Code/.vscode/
+
+# Build/output
+bin/
+obj/
+out/
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+*.secret
+*credentials*
+*secrets*
+
+# User-specific files
+*.user
+*.suo
