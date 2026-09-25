@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "BTCL_DT - CRONUS",
+      "type": "al",
+      "request": "launch",
+      "environmentType": "Sandbox",
+      "environmentName": "BTCL_DT",
+      "startupObjectType": "Page",
+      "startupObjectId": 22,
+      "startupCompany": "CRONUS International Ltd.",
+      "tenant": "360bdea7-2073-4851-bcdf-87a7cad6e501"
+    }
+  ]
+}

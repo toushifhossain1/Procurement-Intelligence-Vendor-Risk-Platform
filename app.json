@@ -1,0 +1,26 @@
+{
+    "id": "32d84ccb-9083-449d-97cb-295ffd5d010f",
+    "name": "Procurement Intelligence & Vendor Risk Platform",
+    "publisher": "BTCL-DEV",
+    "version": "1.0.0.0",
+
+    "application": "28.5.0.0",
+    "runtime": "17.0",
+
+    "idRanges": [
+        {
+            "from": 50100,
+            "to": 50149
+        }
+    ],
+
+    "resourceExposurePolicy": {
+        "allowDebugging": true,
+        "allowDownloadingSource": true,
+        "includeSourceInSymbolFile": true
+    },
+
+    "features": [
+        "NoImplicitWith"
+    ]
+}

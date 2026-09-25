@@ -1,0 +1,12 @@
+1) Identify the BC standard tables/pages you'll consume.
+Vendor, Purchase Order, Goods Receipt, Invoice
+
+
+2) Decide which fields your platform actually needs.
+
+
+
+3) Create the necessary AL API pages.4)
+4) Publish them in your BC sandbox.
+5) Test the endpoints.
+6) Document the API contract.
