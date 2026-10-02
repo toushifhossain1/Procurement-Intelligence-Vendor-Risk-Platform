@@ -1,6 +1,8 @@
 using System.Net.Http.Headers;
 using IntegrationServices.Clients;
 using IntegrationServices.Models;
+using IntegrationServices.Data;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,12 @@ builder.Services.AddSwaggerGen();
 // Bind Business Central configuration
 builder.Services.Configure<BusinessCentralOptions>(
     builder.Configuration.GetSection("BusinessCentral"));
+
+// SQL Server / Entity Framework Core
+builder.Services.AddDbContext<ProcurementDbContext>(options =>
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection")));
+
 
 // Register Business Central HTTP client
 builder.Services.AddHttpClient<IBusinessCentralClient, BusinessCentralClient>(
