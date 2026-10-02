@@ -66,7 +66,13 @@ page 50100 "PI Vendor API"
                 field(balanceLCY; Rec."Balance (LCY)")
                 {
                 }
+                field(paymentTermsCode; Rec."Payment Terms Code")
+                {
+                }
 
+                field(vendorPostingGroup; Rec."Vendor Posting Group")
+                {
+                }
                 field(lastModifiedDateTime; Rec.SystemModifiedAt)
                 {
                     Editable = false;

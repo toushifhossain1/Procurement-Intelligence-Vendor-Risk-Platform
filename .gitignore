@@ -31,3 +31,10 @@ Thumbs.db
 # User-specific files
 *.user
 *.suo
+
+# To ignore the BC connection string
+appsettings.Development.json
+
+
+# LibreOffice temporary lock files
+.~lock.*
