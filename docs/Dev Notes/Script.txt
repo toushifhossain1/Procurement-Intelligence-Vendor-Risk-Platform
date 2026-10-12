@@ -1,0 +1,4 @@
+To start Database
+
+in Terminal run:
+podman start sqlserver

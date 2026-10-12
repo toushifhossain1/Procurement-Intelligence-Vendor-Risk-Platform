@@ -1,0 +1,21 @@
+BCVendorID,VendorNo,VendorName,Address,City,CountryRegionCode,PhoneNo,Email,CurrencyCode,Blocked,BalanceLCY,LastModifiedDateTime,SyncedAt
+17c2ef28-20ac-5b0c-863e-4fec68e4aa1f,V0001,Padma Industrial Supplies Ltd.,100 Industrial Road,Dhaka,BD,01711000001,procurement@padmaindustrial.example,BDT, ,"287,742.06",2026-10-07 16:30:00,2026-10-09 16:30:00
+6e80be32-c253-52fe-8b92-040e577e821e,V0002,Meghna Packaging Industries,101 Industrial Road,Narayanganj,BD,01711000002,sales@meghnapackaging.example,BDT, ,"333,697.72",2026-09-23 16:30:00,2026-10-09 16:30:00
+e5eb33e7-c449-5b81-9d46-224a9ba1fa33,V0003,Eastern Chemical Traders,102 Industrial Road,Chattogram,BD,01711000003,orders@easternchemical.example,BDT, ,"100,444.83",2026-08-22 16:30:00,2026-10-09 16:30:00
+cf24a7e6-80a5-5ead-aa1b-3d3b6d4d31df,V0004,Delta Transport Services,103 Industrial Road,Dhaka,BD,01711000004,dispatch@deltatransport.example,BDT, ,"46,122.83",2026-08-22 16:30:00,2026-10-09 16:30:00
+0d3763ff-3cad-531f-8113-5805a6a83fd2,V0005,Bengal Engineering Works,104 Industrial Road,Gazipur,BD,01711000005,sales@bengalengineering.example,BDT, ,"401,480.81",2026-10-03 16:30:00,2026-10-09 16:30:00
+cab9602d-9304-50da-a242-43f61ee26d3d,V0006,National Safety Products,105 Industrial Road,Dhaka,BD,01711000006,info@nationalsafety.example,BDT, ,"265,721.63",2026-10-06 16:30:00,2026-10-09 16:30:00
+46c70726-903f-59e3-8221-b6149daf35e2,V0007,GreenPack Bangladesh Ltd.,106 Industrial Road,Cumilla,BD,01711000007,sales@greenpack.example,BDT, ,"13,408.75",2026-09-25 16:30:00,2026-10-09 16:30:00
+d9ffce29-36ac-5a2e-be72-df46093c1636,V0008,Chattogram Raw Materials,107 Industrial Road,Chattogram,BD,01711000008,orders@ctgrawmaterials.example,BDT, ,"104,697.40",2026-08-31 16:30:00,2026-10-09 16:30:00
+4dcc3ffc-db4e-5d8b-94cf-f227ed78e998,V0009,Prime Office Solutions,108 Industrial Road,Dhaka,BD,01711000009,support@primeoffice.example,BDT, ,"11,941.19",2026-09-26 16:30:00,2026-10-09 16:30:00
+ce322406-066a-53c3-b85f-dfa57480e9b2,V0010,Reliable Electrical Components,109 Industrial Road,Narayanganj,BD,01711000010,sales@reliableelectrical.example,BDT, ,"322,208.83",2026-08-25 16:30:00,2026-10-09 16:30:00
+5a0a35f4-7482-5483-98a9-36f8569a2120,V0011,Sunrise Logistics Ltd.,110 Industrial Road,Dhaka,BD,01711000011,operations@sunriselogistics.example,BDT, ,"245,223.67",2026-09-24 16:30:00,2026-10-09 16:30:00
+d2dca4fa-5fdc-54b3-a39b-b8fa908f7f25,V0012,Apex Laboratory Supplies,111 Industrial Road,Gazipur,BD,01711000012,lab@apexlab.example,BDT, ,"202,144.07",2026-09-21 16:30:00,2026-10-09 16:30:00
+392233ca-2b7d-51f3-8a56-e7079e23b1d7,V0013,United Industrial Gases,112 Industrial Road,Chattogram,BD,01711000013,orders@unitedgases.example,BDT, ,"364,243.71",2026-10-08 16:30:00,2026-10-09 16:30:00
+4ce5ec92-4e69-50b6-a5ac-8650eb821efa,V0014,Metro Maintenance Services,113 Industrial Road,Dhaka,BD,01711000014,service@metromaintenance.example,BDT, ,"341,463.32",2026-09-28 16:30:00,2026-10-09 16:30:00
+9e399cbc-05ae-5ad6-bce1-d075f0fb182c,V0015,Brahmaputra Paper & Board,114 Industrial Road,Mymensingh,BD,01711000015,sales@brahmaputrapaper.example,BDT, ,"314,162.73",2026-09-17 16:30:00,2026-10-09 16:30:00
+ec7ed06c-c4a9-5fe3-9faa-a4550a39a978,V0016,Crescent IT Hardware,115 Industrial Road,Dhaka,BD,01711000016,sales@crescentit.example,BDT, ,"125,042.10",2026-09-25 16:30:00,2026-10-09 16:30:00
+c7afbee2-8610-5000-8c8f-0e3debc88a02,V0017,Coastal Chemical Imports,116 Industrial Road,Chattogram,BD,01711000017,orders@coastalchem.example,BDT, ,"430,745.88",2026-09-17 16:30:00,2026-10-09 16:30:00
+90bc40b4-168c-5167-aa19-5f403d124fa5,V0018,Silverline Fabrication,117 Industrial Road,Gazipur,BD,01711000018,sales@silverlinefab.example,BDT, ,"45,994.62",2026-09-14 16:30:00,2026-10-09 16:30:00
+ef0f80b8-0d13-58ab-ab0c-7c24c83cd56c,V0019,Evergreen Cleaning Products,118 Industrial Road,Dhaka,BD,01711000019,orders@evergreenclean.example,BDT, ,"43,522.37",2026-08-15 16:30:00,2026-10-09 16:30:00
+dcfb7267-a855-5ff2-a6b9-71e52aa2f7a2,V0020,Trustworthy Industrial Tools,119 Industrial Road,Narayanganj,BD,01711000020,sales@trustworthytools.example,BDT,,"154,780.08",2026-09-22 16:30:00,2026-10-09 16:30:00
