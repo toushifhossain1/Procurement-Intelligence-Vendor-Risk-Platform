@@ -50,6 +50,9 @@ builder.Services.AddScoped<
     IVendorPerformanceService,
     VendorPerformanceService>();
 
+builder.Services.AddScoped<
+    IVendorRiskService,
+    VendorRiskService>();
 
 var app = builder.Build();
 
