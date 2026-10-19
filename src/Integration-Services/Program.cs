@@ -3,6 +3,8 @@ using IntegrationServices.Clients;
 using IntegrationServices.Models;
 using IntegrationServices.Data;
 using Microsoft.EntityFrameworkCore;
+using IntegrationServices.Services;
+using IntegrationServices.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -43,6 +45,11 @@ builder.Services.AddHttpClient<IBusinessCentralClient, BusinessCentralClient>(
         client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/json"));
     });
+
+builder.Services.AddScoped<
+    IVendorPerformanceService,
+    VendorPerformanceService>();
+
 
 var app = builder.Build();
 
