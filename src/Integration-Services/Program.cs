@@ -54,6 +54,11 @@ builder.Services.AddScoped<
     IVendorRiskService,
     VendorRiskService>();
 
+builder.Services.AddScoped<
+    IVendorRiskAlertService,
+    VendorRiskAlertService>();
+
+
 var app = builder.Build();
 
 // HTTP request pipeline
