@@ -26,6 +26,8 @@ public class ProcurementDbContext : DbContext
 
     public DbSet<BCVendorLedgerEntry> BCVendorLedgerEntries => Set<BCVendorLedgerEntry>();
 
+    public DbSet<VendorRiskAlert> VendorRiskAlerts => Set<VendorRiskAlert>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
     base.OnModelCreating(modelBuilder);
@@ -277,6 +279,59 @@ public class ProcurementDbContext : DbContext
         entity.HasIndex(x => x.DueDate);
         entity.HasIndex(x => x.Open);
         entity.HasIndex(x => x.LastModifiedDateTime);
+
+
+        // ========================================================
+        // Vendor Risk Alert
+        // ========================================================
+
+        modelBuilder.Entity<VendorRiskAlert>(entity =>
+        {
+            entity.HasKey(x => x.VendorRiskAlertID);
+
+            entity.Property(x => x.VendorNo)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(x => x.VendorName)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(x => x.AlertType)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(x => x.Severity)
+                .IsRequired()
+                .HasMaxLength(20);
+
+            entity.Property(x => x.Title)
+                .IsRequired()
+                .HasMaxLength(200);
+
+            entity.Property(x => x.Description)
+                .IsRequired()
+                .HasMaxLength(2000);
+
+            entity.Property(x => x.Status)
+                .IsRequired()
+                .HasMaxLength(30);
+
+            entity.Property(x => x.ResolvedBy)
+                .HasMaxLength(200);
+
+            entity.Property(x => x.ResolutionNotes)
+                .HasMaxLength(2000);
+
+            entity.HasIndex(x => x.VendorNo);
+
+            entity.HasIndex(x => x.Status);
+
+            entity.HasIndex(x => x.Severity);
+
+            entity.HasIndex(x => x.CreatedAt);
+        });
+        
     });
 }
 
