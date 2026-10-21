@@ -58,6 +58,10 @@ builder.Services.AddScoped<
     IVendorRiskAlertService,
     VendorRiskAlertService>();
 
+builder.Services.AddScoped<
+    IProcurementDashboardService,
+    ProcurementDashboardService>();
+
 
 var app = builder.Build();
 
