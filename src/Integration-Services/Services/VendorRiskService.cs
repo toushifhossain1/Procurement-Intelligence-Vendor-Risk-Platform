@@ -11,7 +11,6 @@ public class VendorRiskService : IVendorRiskService
     private readonly ProcurementDbContext _context;
     private readonly IVendorPerformanceService _performanceService;
 
-    // Initial business-rule weights.
     private const decimal DeliveryRiskWeight = 0.30m;
     private const decimal FinancialRiskWeight = 0.30m;
     private const decimal InvoiceRiskWeight = 0.20m;
@@ -30,23 +29,23 @@ public class VendorRiskService : IVendorRiskService
     {
         var vendors = await _context.BCVendors
             .AsNoTracking()
-            .OrderBy(vendor => vendor.VendorNo)
+            .OrderBy(v => v.VendorNo)
             .ToListAsync(cancellationToken);
 
         var results = new List<VendorRiskDTO>(vendors.Count);
 
         foreach (var vendor in vendors)
         {
-            var risk = await CalculateVendorRiskAsync(
-                vendor,
-                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            results.Add(risk);
+            results.Add(await CalculateVendorRiskAsync(
+                vendor,
+                cancellationToken));
         }
 
         return results
-            .OrderByDescending(risk => risk.OverallRiskScore ?? -1m)
-            .ThenBy(risk => risk.VendorNo)
+            .OrderByDescending(r => r.OverallRiskScore ?? -1m)
+            .ThenBy(r => r.VendorNo)
             .ToList();
     }
 
@@ -54,10 +53,15 @@ public class VendorRiskService : IVendorRiskService
         string vendorNo,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(vendorNo))
+        {
+            return null;
+        }
+
         var vendor = await _context.BCVendors
             .AsNoTracking()
             .FirstOrDefaultAsync(
-                item => item.VendorNo == vendorNo,
+                v => v.VendorNo == vendorNo,
                 cancellationToken);
 
         if (vendor is null)
@@ -81,10 +85,6 @@ public class VendorRiskService : IVendorRiskService
             AssessmentDate = DateTime.UtcNow
         };
 
-        // ---------------------------------------------------------
-        // 1. Obtain the vendor's performance assessment.
-        // ---------------------------------------------------------
-
         var performance =
             await _performanceService.GetVendorPerformanceAsync(
                 vendor.VendorNo,
@@ -92,95 +92,49 @@ public class VendorRiskService : IVendorRiskService
 
         if (performance is not null)
         {
-            result.OnTimeDeliveryRate =
-                performance.OnTimeDeliveryRate;
-
-            result.OrderFulfillmentRate =
-                performance.OrderFulfillmentRate;
-
+            result.OnTimeDeliveryRate = performance.OnTimeDeliveryRate;
+            result.OrderFulfillmentRate = performance.OrderFulfillmentRate;
             result.InvoiceDiscrepancyRate =
                 performance.InvoiceDiscrepancyRate;
 
             result.OverallPerformanceScore =
                 performance.OverallPerformanceScore;
 
-            result.PerformanceRating =
-                performance.PerformanceRating;
+            result.PerformanceRating = performance.PerformanceRating;
         }
 
-        // ---------------------------------------------------------
-        // 2. Calculate Delivery Risk.
-        //
-        // Delivery Risk =
-        //     60% x Late Delivery Percentage
-        //   + 40% x Incomplete Fulfillment Percentage
-        // ---------------------------------------------------------
+        // 1. Delivery risk.
+        // Late delivery and incomplete fulfillment are measured only
+        // when their corresponding performance data is available.
 
-        var hasDeliveryData =
-            performance is not null &&
-            (
-                performance.ReceiptLineCount > 0 ||
-                performance.PurchaseOrderCount > 0
-            );
+        decimal deliveryWeightedScore = 0m;
+        decimal availableDeliveryWeight = 0m;
 
-        if (hasDeliveryData)
+        if (performance?.OnTimeDeliveryRate is decimal onTimeRate)
         {
-            var lateDeliveryPercentage =
-                performance!.ReceiptLineCount > 0
-                    ? 100m - performance.OnTimeDeliveryRate
-                    : (decimal?)null;
+            deliveryWeightedScore +=
+                Math.Clamp(100m - onTimeRate, 0m, 100m) * 0.60m;
 
-            var incompleteFulfillmentPercentage =
-                performance.PurchaseOrderCount > 0
-                    ? 100m - performance.OrderFulfillmentRate
-                    : (decimal?)null;
-
-            decimal deliveryWeightedScore = 0m;
-            decimal availableDeliveryWeight = 0m;
-
-            if (lateDeliveryPercentage.HasValue)
-            {
-                deliveryWeightedScore +=
-                    Math.Clamp(
-                        lateDeliveryPercentage.Value,
-                        0m,
-                        100m) * 0.60m;
-
-                availableDeliveryWeight += 0.60m;
-            }
-
-            if (incompleteFulfillmentPercentage.HasValue)
-            {
-                deliveryWeightedScore +=
-                    Math.Clamp(
-                        incompleteFulfillmentPercentage.Value,
-                        0m,
-                        100m) * 0.40m;
-
-                availableDeliveryWeight += 0.40m;
-            }
-
-            if (availableDeliveryWeight > 0m)
-            {
-                result.DeliveryRiskScore = Math.Round(
-                    deliveryWeightedScore /
-                    availableDeliveryWeight,
-                    2);
-            }
+            availableDeliveryWeight += 0.60m;
         }
 
-        // ---------------------------------------------------------
-        // 3. Calculate Financial Risk.
-        //
-        // Financial Risk is based on the percentage of outstanding
-        // open ledger balances that are overdue.
-        //
-        // Overdue Percentage =
-        //     Overdue Balance / Outstanding Balance x 100
-        //
-        // We do not assign an arbitrary monetary threshold because
-        // a large balance can be normal for a large supplier.
-        // ---------------------------------------------------------
+        if (performance?.OrderFulfillmentRate is decimal fulfillmentRate)
+        {
+            deliveryWeightedScore +=
+                Math.Clamp(100m - fulfillmentRate, 0m, 100m) * 0.40m;
+
+            availableDeliveryWeight += 0.40m;
+        }
+
+        if (availableDeliveryWeight > 0m)
+        {
+            result.DeliveryRiskScore = Math.Round(
+                deliveryWeightedScore / availableDeliveryWeight,
+                2);
+        }
+
+        // 2. Financial risk.
+        // Exposure consists of positive remaining amounts on open entries.
 
         var ledgerEntries = await _context.BCVendorLedgerEntries
             .AsNoTracking()
@@ -205,90 +159,64 @@ public class VendorRiskService : IVendorRiskService
         var overdueBalance = overdueLedgerEntries
             .Sum(entry => entry.RemainingAmountLCY ?? 0m);
 
-        result.OutstandingBalanceLCY =
-            Math.Round(outstandingBalance, 2);
+        result.OutstandingBalanceLCY = Math.Round(
+            outstandingBalance, 2);
 
-        result.OverdueBalanceLCY =
-            Math.Round(overdueBalance, 2);
+        result.OverdueBalanceLCY = Math.Round(
+            overdueBalance, 2);
 
-        result.OpenLedgerEntryCount =
-            openLedgerEntries.Count;
+        result.OpenLedgerEntryCount = openLedgerEntries.Count;
+        result.OverdueLedgerEntryCount = overdueLedgerEntries.Count;
 
-        result.OverdueLedgerEntryCount =
-            overdueLedgerEntries.Count;
-
-        var hasFinancialData = ledgerEntries.Count > 0;
-
-        if (hasFinancialData)
+        // Ledger history is considered financial data even when all
+        // balances are settled. No ledger history means unknown risk.
+        if (ledgerEntries.Count > 0)
         {
-            if (outstandingBalance > 0m)
-            {
-                var overduePercentage = Math.Clamp(
+            var overduePercentage = outstandingBalance > 0m
+                ? Math.Clamp(
                     overdueBalance / outstandingBalance * 100m,
                     0m,
-                    100m);
+                    100m)
+                : 0m;
 
-                result.OverdueBalancePercentage =
-                    Math.Round(overduePercentage, 2);
+            result.OverdueBalancePercentage =
+                Math.Round(overduePercentage, 2);
 
-                result.FinancialRiskScore =
-                    Math.Round(overduePercentage, 2);
-            }
-            else
-            {
-                // Ledger history exists, but no positive open
-                // balance remains under the current rule.
-                result.OverdueBalancePercentage = 0m;
-                result.FinancialRiskScore = 0m;
-            }
+            result.FinancialRiskScore =
+                Math.Round(overduePercentage, 2);
         }
 
-        // ---------------------------------------------------------
-        // 4. Calculate Invoice Risk.
-        //
-        // The performance engine supplies the invoice discrepancy
-        // rate. A 35% discrepancy rate produces a risk score of 35.
-        // ---------------------------------------------------------
+        // 3. Invoice risk.
+        // An invoice count alone does not prove that discrepancies
+        // could be evaluated. Use the explicit evaluated invoice count.
 
-        var hasInvoiceData =
-            performance is not null &&
-            performance.InvoiceCount > 0;
-
-        if (hasInvoiceData)
+        if (performance is not null &&
+            performance.EvaluatedInvoiceCount > 0 &&
+            performance.InvoiceDiscrepancyRate is decimal discrepancyRate)
         {
             result.InvoiceRiskScore = Math.Clamp(
-                performance!.InvoiceDiscrepancyRate,
+                discrepancyRate,
                 0m,
                 100m);
         }
 
-        // ---------------------------------------------------------
-        // 5. Calculate Reliability Risk.
-        //
-        // Reliability Risk = 100 - Overall Performance Score
-        // ---------------------------------------------------------
+        // 4. Reliability risk.
+        // Only score reliability when performance has usable data.
 
-        var hasPerformanceData =
-            performance is not null &&
+        if (performance is not null &&
             !string.Equals(
                 performance.PerformanceRating,
                 "Insufficient Data",
-                StringComparison.OrdinalIgnoreCase);
-
-        if (hasPerformanceData)
+                StringComparison.OrdinalIgnoreCase))
         {
             result.ReliabilityRiskScore = Math.Clamp(
-                100m - performance!.OverallPerformanceScore,
+                100m - performance.OverallPerformanceScore,
                 0m,
                 100m);
         }
 
-        // ---------------------------------------------------------
-        // 6. Calculate the overall weighted risk score.
-        //
-        // Missing dimensions are excluded and the remaining
-        // weights are normalized.
-        // ---------------------------------------------------------
+        // 5. Weighted overall risk.
+        // Missing dimensions are excluded and remaining weights normalized.
 
         decimal weightedRiskTotal = 0m;
         decimal availableWeightTotal = 0m;
@@ -338,16 +266,7 @@ public class VendorRiskService : IVendorRiskService
             result.RiskAssessmentStatus = "Insufficient Data";
         }
 
-        // ---------------------------------------------------------
-        // 7. Identify the risk factors.
-        // ---------------------------------------------------------
-
         AddRiskFactors(result);
-
-        // ---------------------------------------------------------
-        // 8. Generate recommended actions.
-        // ---------------------------------------------------------
-
         AddRecommendedActions(result);
 
         return result;
@@ -370,27 +289,15 @@ public class VendorRiskService : IVendorRiskService
 
     private static string ClassifyRisk(decimal score)
     {
-        if (score < 25m)
-        {
-            return "Low";
-        }
-
-        if (score < 50m)
-        {
-            return "Medium";
-        }
-
-        if (score < 75m)
-        {
-            return "High";
-        }
+        if (score < 25m) return "Low";
+        if (score < 50m) return "Medium";
+        if (score < 75m) return "High";
 
         return "Critical";
     }
 
     private static void AddRiskFactors(VendorRiskDTO result)
     {
-        // Delivery
         if (result.DeliveryRiskScore >= 50m)
         {
             result.RiskFactors.Add(
@@ -402,7 +309,6 @@ public class VendorRiskService : IVendorRiskService
                 "The vendor has some delivery or fulfillment concerns.");
         }
 
-        // Financial
         if (result.OverdueBalanceLCY > 0m)
         {
             result.RiskFactors.Add(
@@ -417,14 +323,12 @@ public class VendorRiskService : IVendorRiskService
             }
         }
 
-        // Invoice
         if (result.InvoiceRiskScore >= 25m)
         {
             result.RiskFactors.Add(
                 "The vendor has a notable invoice discrepancy rate.");
         }
 
-        // Reliability
         if (result.ReliabilityRiskScore >= 50m)
         {
             result.RiskFactors.Add(
@@ -434,18 +338,12 @@ public class VendorRiskService : IVendorRiskService
 
         if (result.RiskFactors.Count == 0)
         {
-            if (result.RiskAssessmentStatus == "Insufficient Data")
-            {
-                result.RiskFactors.Add(
-                    "There is insufficient transaction data " +
-                    "to identify and evaluate vendor risk.");
-            }
-            else
-            {
-                result.RiskFactors.Add(
-                    "No significant risk indicators were identified " +
-                    "by the current assessment rules.");
-            }
+            result.RiskFactors.Add(
+                result.RiskAssessmentStatus == "Insufficient Data"
+                    ? "There is insufficient transaction data to " +
+                      "identify and evaluate vendor risk."
+                    : "No significant risk indicators were identified " +
+                      "by the current assessment rules.");
         }
     }
 
@@ -460,7 +358,6 @@ public class VendorRiskService : IVendorRiskService
             return;
         }
 
-        // Delivery
         if (result.DeliveryRiskScore >= 25m)
         {
             result.RecommendedActions.Add(
@@ -468,7 +365,6 @@ public class VendorRiskService : IVendorRiskService
                 "with the procurement team.");
         }
 
-        // Financial
         if (result.OverdueBalanceLCY > 0m)
         {
             result.RecommendedActions.Add(
@@ -476,7 +372,6 @@ public class VendorRiskService : IVendorRiskService
                 "status with the finance team.");
         }
 
-        // Invoice
         if (result.InvoiceRiskScore >= 25m)
         {
             result.RecommendedActions.Add(
@@ -484,7 +379,6 @@ public class VendorRiskService : IVendorRiskService
                 "purchase order, receipt, and invoice matching.");
         }
 
-        // Reliability
         if (result.ReliabilityRiskScore >= 30m)
         {
             result.RecommendedActions.Add(
@@ -492,7 +386,6 @@ public class VendorRiskService : IVendorRiskService
                 "on corrective actions where necessary.");
         }
 
-        // Overall classification
         if (result.RiskClassification == "Critical")
         {
             result.RecommendedActions.Add(
