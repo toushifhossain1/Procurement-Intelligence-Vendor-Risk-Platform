@@ -10,12 +10,12 @@ import {
   Clock3,
   LayoutDashboard,
   LoaderCircle,
-  Menu,
+  ShieldAlert,
   ShieldCheck,
   Users,
-  X,
 } from "lucide-react";
 
+import RiskAlertsPage from "./components/RiskAlertsPage";
 import ProcurementAnalyticsPage from "./components/ProcurementAnalyticsPage";
 import VendorRiskPage from "./components/VendorRiskPage";
 import { getDashboardSummary } from "./services/dashboardService";
@@ -31,7 +31,7 @@ const navigationItems: NavigationItem[] = [
   { label: "Overview", icon: LayoutDashboard },
   { label: "Vendor Risk", icon: Users },
   { label: "Procurement Analytics", icon: Activity },
-  { label: "Risk Alerts", icon: Bell },
+  { label: "Risk Alerts", icon: ShieldAlert },
 ];
 
 const initialDashboard: DashboardSummary = {
@@ -208,14 +208,12 @@ export default function App() {
     if (
       label === "Overview" ||
       label === "Vendor Risk" ||
-      label === "Procurement Analytics"
+      label === "Procurement Analytics" ||
+      label === "Risk Alerts"
     ) {
       setSelectedPage(label);
-      setSidebarOpen(false);
-      return;
     }
 
-    window.alert(`${label} will be implemented in a later feature.`);
     setSidebarOpen(false);
   };
 
@@ -240,15 +238,6 @@ export default function App() {
             <strong>Procurement</strong>
             <span>INTELLIGENCE PLATFORM</span>
           </div>
-
-          <button
-            type="button"
-            className="mobile-close-button"
-            aria-label="Close navigation"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X size={19} />
-          </button>
         </div>
 
         <div className="sidebar-section-label">WORKSPACE</div>
@@ -295,38 +284,10 @@ export default function App() {
       </aside>
 
       <div className="main-area">
-        <header className="topbar">
-          <div className="topbar-left">
-            <button
-              type="button"
-              className="mobile-menu-button"
-              aria-label="Open navigation"
-              onClick={() => setSidebarOpen(true)}
-            >
-              <Menu size={20} />
-            </button>
-
-            <div className="breadcrumb">
-              <span>Workspace</span>
-              <span className="breadcrumb-separator">/</span>
-              <strong>{selectedPage}</strong>
-            </div>
-          </div>
-
-          <div className="topbar-right">
-            <div className="environment-badge">
-              <span className="environment-dot" />
-              Development
-            </div>
-
-            <div className="user-avatar" title="Local development user">
-              TH
-            </div>
-          </div>
-        </header>
-
         <main className="page-content">
-          {selectedPage === "Vendor Risk" ? (
+          {selectedPage === "Risk Alerts" ? (
+            <RiskAlertsPage />
+          ) : selectedPage === "Vendor Risk" ? (
             <VendorRiskPage />
           ) : selectedPage === "Procurement Analytics" ? (
             <ProcurementAnalyticsPage />
