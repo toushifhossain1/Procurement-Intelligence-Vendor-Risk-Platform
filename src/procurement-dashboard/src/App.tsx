@@ -90,6 +90,7 @@ function RiskBar({
         <span className="risk-bar-label">
           <span className={`risk-legend-dot ${color}`} />
           {label}
+          {": "}
         </span>
         <strong>{formatNumber(count)}</strong>
       </div>
@@ -235,8 +236,7 @@ export default function App() {
           </div>
 
           <div className="brand-copy">
-            <strong>Procurement</strong>
-            <span>INTELLIGENCE PLATFORM</span>
+            <strong>Procurement Intelligence & Vendor Risk Platform</strong>
           </div>
         </div>
 
