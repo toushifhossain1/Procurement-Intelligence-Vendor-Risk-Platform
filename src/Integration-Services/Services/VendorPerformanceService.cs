@@ -10,7 +10,6 @@ public class VendorPerformanceService : IVendorPerformanceService
 {
     private readonly ProcurementDbContext _context;
 
-    // Provisional business rules for the initial prototype.
     private const decimal OnTimeWeight = 0.35m;
     private const decimal FulfillmentWeight = 0.30m;
     private const decimal LeadTimeWeight = 0.20m;
@@ -37,11 +36,11 @@ public class VendorPerformanceService : IVendorPerformanceService
 
         foreach (var vendor in vendors)
         {
-            var performance = await CalculatePerformanceAsync(
-                vendor,
-                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            results.Add(performance);
+            results.Add(await CalculatePerformanceAsync(
+                vendor,
+                cancellationToken));
         }
 
         return results;
@@ -52,6 +51,11 @@ public class VendorPerformanceService : IVendorPerformanceService
             string vendorNo,
             CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(vendorNo))
+        {
+            return null;
+        }
+
         var vendor = await _context.BCVendors
             .AsNoTracking()
             .FirstOrDefaultAsync(
@@ -72,6 +76,8 @@ public class VendorPerformanceService : IVendorPerformanceService
         BCVendor vendor,
         CancellationToken cancellationToken)
     {
+        // 1. Purchase orders and eligible purchase lines.
+
         var purchaseOrders = await _context.BCPurchaseOrders
             .AsNoTracking()
             .Where(po => po.VendorNo == vendor.VendorNo)
@@ -89,46 +95,52 @@ public class VendorPerformanceService : IVendorPerformanceService
                 orderNumbers.Contains(line.PurchaseOrderNo))
             .ToListAsync(cancellationToken);
 
-        // Ignore non-item lines and nonpositive quantities.
+        // Count item lines only. If Type is missing in imported data,
+        // ItemNo is used as a fallback. Explicit non-item types are excluded.
         var eligibleOrderLines = orderLines
             .Where(line =>
                 line.Quantity.HasValue &&
-                line.Quantity.Value > 0 &&
-                (string.Equals(
-                    line.Type,
-                    "Item",
-                    StringComparison.OrdinalIgnoreCase) ||
-                 !string.IsNullOrWhiteSpace(line.ItemNo)))
+                line.Quantity.Value > 0m &&
+                (
+                    string.Equals(
+                        line.Type,
+                        "Item",
+                        StringComparison.OrdinalIgnoreCase)
+                    ||
+                    (
+                        string.IsNullOrWhiteSpace(line.Type) &&
+                        !string.IsNullOrWhiteSpace(line.ItemNo)
+                    )
+                ))
             .ToList();
 
         var totalOrderedQuantity = eligibleOrderLines
             .Sum(line => line.Quantity ?? 0m);
 
-        // QuantityReceived is the cumulative received quantity on
-        // the purchase order line, avoiding double-counting multiple
-        // partial receipt lines.
+        // QuantityReceived is cumulative. Do not sum receipt lines here,
+        // because partial receipts could otherwise be double-counted.
         var totalReceivedQuantity = eligibleOrderLines
-            .Sum(line => Math.Max(
-                0m,
-                (line.Quantity ?? 0m) -
-                (line.OutstandingQuantity ?? 0m)));
+            .Sum(line =>
+            {
+                var ordered = line.Quantity ?? 0m;
+                var received = line.QuantityReceived
+                    ?? Math.Max(
+                        0m,
+                        ordered - (line.OutstandingQuantity ?? 0m));
 
-        // Use the explicit received quantity when available.
-        totalReceivedQuantity = eligibleOrderLines
-            .Sum(line => Math.Max(
-                0m,
-                Math.Min(
-                    line.Quantity ?? 0m,
-                    line.QuantityReceived ??
-                    ((line.Quantity ?? 0m) -
-                     (line.OutstandingQuantity ?? 0m)))));
+                return Math.Clamp(received, 0m, ordered);
+            });
 
-        var fulfillmentRate = totalOrderedQuantity > 0m
-            ? Math.Clamp(
-                totalReceivedQuantity / totalOrderedQuantity * 100m,
-                0m,
-                100m)
-            : 0m;
+        decimal? fulfillmentRate = totalOrderedQuantity > 0m
+            ? Math.Round(
+                Math.Clamp(
+                    totalReceivedQuantity / totalOrderedQuantity * 100m,
+                    0m,
+                    100m),
+                2)
+            : null;
+
+        // 2. Receipt-based delivery and lead-time measurements.
 
         var receipts = await _context.BCPurchaseReceiptLines
             .AsNoTracking()
@@ -137,8 +149,7 @@ public class VendorPerformanceService : IVendorPerformanceService
                 line.PayToVendorNo == vendor.VendorNo)
             .ToListAsync(cancellationToken);
 
-        // If receipt lines don't carry a usable vendor number,
-        // associate them with purchase orders belonging to this vendor.
+        // Fallback for imported receipt lines without usable vendor numbers.
         if (receipts.Count == 0 && orderNumbers.Count > 0)
         {
             receipts = await _context.BCPurchaseReceiptLines
@@ -152,17 +163,18 @@ public class VendorPerformanceService : IVendorPerformanceService
         var eligibleReceiptLines = receipts
             .Where(line =>
                 line.Quantity.HasValue &&
-                line.Quantity.Value > 0 &&
+                line.Quantity.Value > 0m &&
                 line.PostingDate.HasValue)
             .ToList();
 
-        var onTimeEligibleCount = eligibleReceiptLines
-            .Count(line =>
-                line.ExpectedReceiptDate.HasValue ||
+        var datedReceiptLines = eligibleReceiptLines
+            .Where(line =>
                 line.PromisedReceiptDate.HasValue ||
-                line.PlannedReceiptDate.HasValue);
+                line.ExpectedReceiptDate.HasValue ||
+                line.PlannedReceiptDate.HasValue)
+            .ToList();
 
-        var onTimeCount = eligibleReceiptLines.Count(line =>
+        var onTimeCount = datedReceiptLines.Count(line =>
         {
             var expectedDate =
                 line.PromisedReceiptDate ??
@@ -173,9 +185,11 @@ public class VendorPerformanceService : IVendorPerformanceService
                    line.PostingDate!.Value.Date <= expectedDate.Value.Date;
         });
 
-        var onTimeRate = onTimeEligibleCount > 0
-            ? (decimal)onTimeCount / onTimeEligibleCount * 100m
-            : 0m;
+        decimal? onTimeRate = datedReceiptLines.Count > 0
+            ? Math.Round(
+                (decimal)onTimeCount / datedReceiptLines.Count * 100m,
+                2)
+            : null;
 
         var leadTimes = eligibleReceiptLines
             .Where(line =>
@@ -187,8 +201,10 @@ public class VendorPerformanceService : IVendorPerformanceService
             .ToList();
 
         decimal? averageLeadTime = leadTimes.Count > 0
-            ? leadTimes.Average()
+            ? Math.Round(leadTimes.Average(), 2)
             : null;
+
+        // 3. Invoice discrepancy measurement.
 
         var invoices = await _context.BCPurchaseInvoices
             .AsNoTracking()
@@ -207,44 +223,48 @@ public class VendorPerformanceService : IVendorPerformanceService
                 invoiceNumbers.Contains(line.InvoiceNo))
             .ToListAsync(cancellationToken);
 
+        var evaluatedInvoiceCount = 0;
         var invoiceDiscrepancyCount = 0;
 
         foreach (var invoice in invoices)
         {
             var linesForInvoice = invoiceLines
-                .Where(line => line.InvoiceNo == invoice.InvoiceNo)
+                .Where(line =>
+                    line.InvoiceNo == invoice.InvoiceNo &&
+                    (
+                        line.VendorNo == vendor.VendorNo ||
+                        string.IsNullOrWhiteSpace(line.VendorNo)
+                    ))
                 .ToList();
 
-            if (linesForInvoice.Count == 0)
+            // Do not count invoices that cannot be compared.
+            if (!invoice.Amount.HasValue || linesForInvoice.Count == 0)
             {
                 continue;
             }
 
-            // Invoice line amounts may exclude VAT. Compare the
-            // header Amount to line totals first; do not compare
-            // line totals directly with AmountIncludingVAT.
-            if (invoice.Amount.HasValue)
-            {
-                var lineTotal = linesForInvoice.Sum(line =>
-                    line.LineAmount ?? line.Amount ?? 0m);
+            evaluatedInvoiceCount++;
 
-                if (Math.Abs(invoice.Amount.Value - lineTotal) >
-                    InvoiceDiscrepancyTolerance)
-                {
-                    invoiceDiscrepancyCount++;
-                }
+            var lineTotal = linesForInvoice.Sum(line =>
+                line.LineAmount ?? line.Amount ?? 0m);
+
+            if (Math.Abs(invoice.Amount.Value - lineTotal) >
+                InvoiceDiscrepancyTolerance)
+            {
+                invoiceDiscrepancyCount++;
             }
         }
 
-        var evaluatedInvoiceCount = invoices.Count(invoice =>
-            invoice.Amount.HasValue &&
-            invoiceLines.Any(line =>
-                line.InvoiceNo == invoice.InvoiceNo));
+        decimal? discrepancyRate = evaluatedInvoiceCount > 0
+            ? Math.Round(
+                (decimal)invoiceDiscrepancyCount /
+                evaluatedInvoiceCount * 100m,
+                2)
+            : null;
 
-        var discrepancyRate = evaluatedInvoiceCount > 0
-            ? (decimal)invoiceDiscrepancyCount /
-              evaluatedInvoiceCount * 100m
-            : 0m;
+        // 4. Outstanding balances.
+        // Use positive remaining amounts on open entries to represent
+        // outstanding supplier payables consistently with risk scoring.
 
         var ledgerEntries = await _context.BCVendorLedgerEntries
             .AsNoTracking()
@@ -252,24 +272,26 @@ public class VendorPerformanceService : IVendorPerformanceService
             .ToListAsync(cancellationToken);
 
         var outstandingBalance = ledgerEntries
-            .Where(entry => entry.Open == true)
+            .Where(entry =>
+                entry.Open == true &&
+                (entry.RemainingAmountLCY ?? 0m) > 0m)
             .Sum(entry => entry.RemainingAmountLCY ?? 0m);
 
-        // Score only the dimensions for which data is available.
-        // This avoids silently treating missing measurements as
-        // poor performance.
+        // 5. Weighted performance score.
+        // Missing dimensions do not contribute to the denominator.
+
         decimal weightedScore = 0m;
         decimal availableWeight = 0m;
 
-        if (onTimeEligibleCount > 0)
+        if (onTimeRate.HasValue)
         {
-            weightedScore += onTimeRate * OnTimeWeight;
+            weightedScore += onTimeRate.Value * OnTimeWeight;
             availableWeight += OnTimeWeight;
         }
 
-        if (totalOrderedQuantity > 0m)
+        if (fulfillmentRate.HasValue)
         {
-            weightedScore += fulfillmentRate * FulfillmentWeight;
+            weightedScore += fulfillmentRate.Value * FulfillmentWeight;
             availableWeight += FulfillmentWeight;
         }
 
@@ -285,10 +307,10 @@ public class VendorPerformanceService : IVendorPerformanceService
             availableWeight += LeadTimeWeight;
         }
 
-        if (evaluatedInvoiceCount > 0)
+        if (discrepancyRate.HasValue)
         {
             var invoiceAccuracy = Math.Clamp(
-                100m - discrepancyRate,
+                100m - discrepancyRate.Value,
                 0m,
                 100m);
 
@@ -297,7 +319,7 @@ public class VendorPerformanceService : IVendorPerformanceService
         }
 
         var overallScore = availableWeight > 0m
-            ? weightedScore / availableWeight
+            ? Math.Round(weightedScore / availableWeight, 2)
             : 0m;
 
         var rating = availableWeight == 0m
@@ -318,17 +340,16 @@ public class VendorPerformanceService : IVendorPerformanceService
             PurchaseOrderCount = purchaseOrders.Count,
             ReceiptLineCount = receipts.Count,
             InvoiceCount = invoices.Count,
+            EvaluatedInvoiceCount = evaluatedInvoiceCount,
 
-            OnTimeDeliveryRate = Math.Round(onTimeRate, 2),
-            OrderFulfillmentRate = Math.Round(fulfillmentRate, 2),
-            AverageLeadTimeDays = averageLeadTime.HasValue
-                ? Math.Round(averageLeadTime.Value, 2)
-                : null,
+            OnTimeDeliveryRate = onTimeRate,
+            OrderFulfillmentRate = fulfillmentRate,
+            AverageLeadTimeDays = averageLeadTime,
+            InvoiceDiscrepancyRate = discrepancyRate,
 
-            InvoiceDiscrepancyRate = Math.Round(discrepancyRate, 2),
             OutstandingBalanceLCY = Math.Round(outstandingBalance, 2),
 
-            OverallPerformanceScore = Math.Round(overallScore, 2),
+            OverallPerformanceScore = overallScore,
             PerformanceRating = rating
         };
     }

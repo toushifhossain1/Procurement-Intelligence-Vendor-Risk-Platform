@@ -21,44 +21,36 @@ public class ProcurementAnalyticsService : IProcurementAnalyticsService
             int limit = 10,
             CancellationToken cancellationToken = default)
     {
-        if (limit < 1 || limit > 100)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(limit),
-                "Limit must be between 1 and 100.");
-        }
+        ValidateLimit(limit);
 
         var performances = await _vendorPerformanceService
             .GetAllVendorPerformanceAsync(cancellationToken);
 
-        var rankedVendors = performances
-            .OrderByDescending(x => x.OverallPerformanceScore)
-            .ThenBy(x => x.VendorName)
+        return performances
+            .Where(vendor =>
+                !string.Equals(
+                    vendor.PerformanceRating,
+                    "Insufficient Data",
+                    StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(vendor => vendor.OverallPerformanceScore)
+            .ThenBy(vendor => vendor.VendorName)
             .Take(limit)
             .Select((vendor, index) => new VendorPerformanceRankingDTO
             {
                 Rank = index + 1,
-
                 VendorNo = vendor.VendorNo,
                 VendorName = vendor.VendorName,
-
-                OverallPerformanceScore =
-                    vendor.OverallPerformanceScore,
-
+                OverallPerformanceScore = vendor.OverallPerformanceScore,
                 PerformanceRating = vendor.PerformanceRating,
-
                 OnTimeDeliveryRate = vendor.OnTimeDeliveryRate,
                 OrderFulfillmentRate = vendor.OrderFulfillmentRate,
                 AverageLeadTimeDays = vendor.AverageLeadTimeDays,
                 InvoiceDiscrepancyRate = vendor.InvoiceDiscrepancyRate,
-
                 PurchaseOrderCount = vendor.PurchaseOrderCount,
                 ReceiptLineCount = vendor.ReceiptLineCount,
                 InvoiceCount = vendor.InvoiceCount
             })
             .ToList();
-
-        return rankedVendors;
     }
 
     public async Task<FinancialExposureDTO> GetFinancialExposureAsync(
@@ -66,25 +58,23 @@ public class ProcurementAnalyticsService : IProcurementAnalyticsService
         int limit = 10,
         CancellationToken cancellationToken = default)
     {
-        if (limit < 1 || limit > 100)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(limit),
-                "Limit must be between 1 and 100.");
-        }
+        ValidateLimit(limit);
 
         var normalizedSortBy = string.IsNullOrWhiteSpace(sortBy)
             ? "OverdueBalanceLCY"
             : sortBy.Trim();
 
-        if (!string.Equals(
-                normalizedSortBy,
-                "OverdueBalanceLCY",
-                StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(
-                normalizedSortBy,
-                "OutstandingBalanceLCY",
-                StringComparison.OrdinalIgnoreCase))
+        var sortByOutstanding = string.Equals(
+            normalizedSortBy,
+            "OutstandingBalanceLCY",
+            StringComparison.OrdinalIgnoreCase);
+
+        var sortByOverdue = string.Equals(
+            normalizedSortBy,
+            "OverdueBalanceLCY",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (!sortByOutstanding && !sortByOverdue)
         {
             throw new ArgumentException(
                 "sortBy must be 'OverdueBalanceLCY' or " +
@@ -95,36 +85,38 @@ public class ProcurementAnalyticsService : IProcurementAnalyticsService
         var risks = await _vendorRiskService
             .GetAllVendorRisksAsync(cancellationToken);
 
+        // Aggregate across all vendors, not just the displayed top N.
         var totalOutstandingBalance = risks.Sum(
-            x => x.OutstandingBalanceLCY);
+            vendor => vendor.OutstandingBalanceLCY);
 
         var totalOverdueBalance = risks.Sum(
-            x => x.OverdueBalanceLCY);
+            vendor => vendor.OverdueBalanceLCY);
 
-        var overduePercentage = totalOutstandingBalance > 0
+        var overduePercentage = totalOutstandingBalance > 0m
             ? Math.Round(
                 totalOverdueBalance / totalOutstandingBalance * 100m,
                 2)
             : 0m;
 
         var vendorsWithOutstandingBalance = risks
-            .Where(x => x.OutstandingBalanceLCY > 0)
-            .ToList();
+            .Count(vendor => vendor.OutstandingBalanceLCY > 0m);
 
         var vendorsWithOverdueBalance = risks
-            .Where(x => x.OverdueBalanceLCY > 0)
-            .ToList();
+            .Count(vendor => vendor.OverdueBalanceLCY > 0m);
 
-        var orderedVendors = string.Equals(
-            normalizedSortBy,
-            "OutstandingBalanceLCY",
-            StringComparison.OrdinalIgnoreCase)
-            ? risks
-                .OrderByDescending(x => x.OutstandingBalanceLCY)
-                .ThenBy(x => x.VendorName)
-            : risks
-                .OrderByDescending(x => x.OverdueBalanceLCY)
-                .ThenBy(x => x.VendorName);
+        // The detail list only contains vendors with actual positive exposure.
+        var vendorsWithExposure = risks
+            .Where(vendor =>
+                vendor.OutstandingBalanceLCY > 0m ||
+                vendor.OverdueBalanceLCY > 0m);
+
+        var orderedVendors = sortByOutstanding
+            ? vendorsWithExposure
+                .OrderByDescending(vendor => vendor.OutstandingBalanceLCY)
+                .ThenBy(vendor => vendor.VendorName)
+            : vendorsWithExposure
+                .OrderByDescending(vendor => vendor.OverdueBalanceLCY)
+                .ThenBy(vendor => vendor.VendorName);
 
         var vendorExposures = orderedVendors
             .Take(limit)
@@ -132,47 +124,36 @@ public class ProcurementAnalyticsService : IProcurementAnalyticsService
             {
                 VendorNo = vendor.VendorNo,
                 VendorName = vendor.VendorName,
-
-                OutstandingBalanceLCY =
-                    vendor.OutstandingBalanceLCY,
-
-                OverdueBalanceLCY =
-                    vendor.OverdueBalanceLCY,
-
+                OutstandingBalanceLCY = vendor.OutstandingBalanceLCY,
+                OverdueBalanceLCY = vendor.OverdueBalanceLCY,
                 OverdueBalancePercentage =
                     vendor.OverdueBalancePercentage,
-
-                OpenLedgerEntryCount =
-                    vendor.OpenLedgerEntryCount,
-
-                OverdueLedgerEntryCount =
-                    vendor.OverdueLedgerEntryCount,
-
-                RiskClassification =
-                    vendor.RiskClassification
+                OpenLedgerEntryCount = vendor.OpenLedgerEntryCount,
+                OverdueLedgerEntryCount = vendor.OverdueLedgerEntryCount,
+                RiskClassification = vendor.RiskClassification
             })
             .ToList();
 
         return new FinancialExposureDTO
         {
-            TotalOutstandingBalanceLCY =
-                totalOutstandingBalance,
-
-            TotalOverdueBalanceLCY =
-                totalOverdueBalance,
-
-            OverdueBalancePercentage =
-                overduePercentage,
-
+            TotalOutstandingBalanceLCY = totalOutstandingBalance,
+            TotalOverdueBalanceLCY = totalOverdueBalance,
+            OverdueBalancePercentage = overduePercentage,
             VendorsWithOutstandingBalance =
-                vendorsWithOutstandingBalance.Count,
-
-            VendorsWithOverdueBalance =
-                vendorsWithOverdueBalance.Count,
-
+                vendorsWithOutstandingBalance,
+            VendorsWithOverdueBalance = vendorsWithOverdueBalance,
             Vendors = vendorExposures,
-
             GeneratedAt = DateTime.UtcNow
         };
+    }
+
+    private static void ValidateLimit(int limit)
+    {
+        if (limit < 1 || limit > 100)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(limit),
+                "Limit must be between 1 and 100.");
+        }
     }
 }
