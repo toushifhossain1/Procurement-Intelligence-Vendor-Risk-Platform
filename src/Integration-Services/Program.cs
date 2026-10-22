@@ -66,6 +66,10 @@ builder.Services.AddScoped<
     IVendorRiskDetailService,
     VendorRiskDetailService>();
 
+builder.Services.AddScoped<
+    IProcurementAnalyticsService,
+    ProcurementAnalyticsService>();
+
 var app = builder.Build();
 
 // HTTP request pipeline
