@@ -6,6 +6,7 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   Bell,
+  ChartNoAxesCombined,
   CheckCircle2,
   Clock3,
   LayoutDashboard,
@@ -15,6 +16,7 @@ import {
   Users,
 } from "lucide-react";
 
+import ExecutiveSummaryDashboardPage from "./components/ExecutiveSummaryDashboardPage";
 import RiskAlertsPage from "./components/RiskAlertsPage";
 import ProcurementAnalyticsPage from "./components/ProcurementAnalyticsPage";
 import VendorRiskPage from "./components/VendorRiskPage";
@@ -29,6 +31,7 @@ type NavigationItem = {
 
 const navigationItems: NavigationItem[] = [
   { label: "Overview", icon: LayoutDashboard },
+  { label: "Executive Summary Dashboard", icon: ChartNoAxesCombined },
   { label: "Vendor Risk", icon: Users },
   { label: "Procurement Analytics", icon: Activity },
   { label: "Risk Alerts", icon: ShieldAlert },
@@ -208,6 +211,7 @@ export default function App() {
   const handleNavigation = (label: string) => {
     if (
       label === "Overview" ||
+      label === "Executive Summary Dashboard" ||
       label === "Vendor Risk" ||
       label === "Procurement Analytics" ||
       label === "Risk Alerts"
@@ -285,7 +289,9 @@ export default function App() {
 
       <div className="main-area">
         <main className="page-content">
-          {selectedPage === "Risk Alerts" ? (
+          {selectedPage === "Executive Summary Dashboard" ? (
+            <ExecutiveSummaryDashboardPage />
+          ) : selectedPage === "Risk Alerts" ? (
             <RiskAlertsPage />
           ) : selectedPage === "Vendor Risk" ? (
             <VendorRiskPage />
