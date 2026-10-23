@@ -1,0 +1,112 @@
+.executive-dashboard-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.executive-dashboard-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.executive-dashboard-heading h1 {
+  margin: 8px 0;
+}
+
+.executive-dashboard-heading p {
+  margin: 0;
+  line-height: 1.6;
+  color: #64748b;
+}
+
+.executive-report-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  color: #1d4ed8;
+  background: #ffffff;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.executive-report-open:hover {
+  background: #f8fafc;
+}
+
+.executive-report-container {
+  width: 100%;
+  height: calc(100vh - 220px);
+  min-height: 600px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgb(15 23 42 / 5%);
+}
+
+.executive-report-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #ffffff;
+}
+
+.executive-report-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+  padding: 32px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+}
+
+.executive-report-icon {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin-bottom: 18px;
+  color: #2878b5;
+  background: #eff6ff;
+  border-radius: 16px;
+}
+
+.executive-report-placeholder h2 {
+  margin: 0 0 10px;
+  color: #0f172a;
+}
+
+.executive-report-placeholder p {
+  max-width: 560px;
+  line-height: 1.7;
+  color: #64748b;
+}
+
+.executive-report-placeholder .executive-report-note {
+  font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .executive-dashboard-heading {
+    flex-direction: column;
+  }
+
+  .executive-report-container {
+    height: 70vh;
+    min-height: 480px;
+  }
+}
